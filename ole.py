@@ -301,7 +301,8 @@ if __name__ == '__main__':
     print('entries:')
     for path in f.list_entries():
         print('/'.join(path))
+
     print('=' * 80)
 
     print('preview text:')
-    print(f.get_stream('PrvText').decode('utf-16le'))
+    hexdump(f.get_stream('PrvText'))

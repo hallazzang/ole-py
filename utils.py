@@ -2,9 +2,13 @@ import math
 import string
 import struct
 
-def hexdump(data, offset=0, size=0x100, *, group_by=16):
+printables = string.ascii_letters + string.digits + string.punctuation + ' '
+
+def hexdump(data, offset=0, size=None, *, group_by=16):
     if isinstance(data, str):
         data = data.encode()
+    if size is None:
+        size = len(data)
 
     start = math.floor(offset / group_by) * group_by
     end = math.ceil(min(len(data), offset + size) / group_by) * group_by
@@ -34,7 +38,7 @@ def hexdump(data, offset=0, size=0x100, *, group_by=16):
             print('│ ', end='')
 
             for j in range(i - group_by + 1, i + 1):
-                if chr(data[j]) in string.printable:
+                if chr(data[j]) in printables:
                     print('%c' % chr(data[j]), end='')
                 else:
                     print('.', end='')
