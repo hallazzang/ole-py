@@ -56,7 +56,7 @@ class Header(Structure):
         if self._Reserved != b'\x00' * 6:
             raise RuntimeError('invalid reserved')
         if (self._MajorVersion == 3
-            and self._NumberOfDirectorySectors != 0):
+                and self._NumberOfDirectorySectors != 0):
             raise RuntimeError('invalid number of directory sectors')
         if self._MiniStreamCutoffSize != 0x00001000:
             raise RuntimeError('invalid mini stream cutoff size')
@@ -102,6 +102,34 @@ class DirectoryEntry(Structure):
     @property
     def children(self):
         return self._children
+
+    def validate(self):
+        try:
+            for invalid_char in '/\:!':
+                if invalid_char in self.name:
+                    raise RuntimeError('invalid character in name')
+        except UnicodeDecodeError:
+            raise RuntimeError('invalid directory entry name')
+
+        if (self._DirectoryEntryNameLength != 0
+                and self._DirectoryEntryNameLength != (len(self.name)+1)*2):
+            raise RuntimeError('invalid directory entry name length')
+        if self._ObjectType not in (0x00, 0x01, 0x02, 0x05):
+            raise RuntimeError('invalid object type')
+        if self._ColorFlag not in (0x00, 0x01):
+            raise RuntimeError('invalid color flag')
+        if self._LeftSiblingID != NOSTREAM and self._LeftSiblingID >= MAXREGSID:
+            raise RuntimeError('invalid left sibling id')
+        if self._RightSiblingID != NOSTREAM and self._RightSiblingID >= MAXREGSID:
+            raise RuntimeError('invalid right sibling id')
+        if self._ChildID != NOSTREAM and self._ChildID >= MAXREGSID:
+            raise RuntimeError('invalid child id')
+        if self._ObjectType == 0x02 and self._CLSID != b'\x00' * 16:
+            raise RuntimeError('invalid CLSID')
+        if self._ObjectType == 0x05 and self._CreationTime != 0:
+            raise RuntimeError('invalid creation time')
+        # if self._ObjectType == 0x05 and self._ModifiedTime != 0:
+        #     raise RuntimeError('invalid modified time')
 
 class OleFile:
     def __init__(self, fp):
@@ -153,6 +181,8 @@ class OleFile:
             self._directory_entries = [
                 DirectoryEntry.make(b[x*128:(x+1)*128])
                 for x in range(len(b)//128)]
+            for entry in self._directory_entries:
+                entry.validate()
             self._build_directory_tree()
 
         return self._directory_entries
@@ -195,7 +225,7 @@ class OleFile:
         def walk(entry, prefixes):
             for child in entry.children:
                 if (child.type == OBJECT_STORAGE and include_storages
-                    or child.type == OBJECT_STREAM and include_streams):
+                        or child.type == OBJECT_STREAM and include_streams):
                     r.append(prefixes + (child.name,))
                 walk(child, prefixes + (child.name,))
 
