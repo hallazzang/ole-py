@@ -202,6 +202,20 @@ class OleFile:
             sector = self.FAT[sector]
         return b''.join(chunks)
 
+    def list_entries(self, *, include_storages=True, include_streams=True):
+        r = []
+
+        def walk(entry, prefixes):
+            for child in entry.children:
+                if (child.type == OBJECT_STORAGE and include_storages
+                        or child.type == OBJECT_STREAM and include_streams):
+                    r.append(prefixes + (child.name,))
+                walk(child, prefixes + (child.name,))
+
+        walk(self.root_storage, ())
+
+        return r
+
     def _build_directory_tree(self):
         def walk(entry_id, parent):
             if entry_id == NOSTREAM:
@@ -219,23 +233,8 @@ class OleFile:
         root = self._directory_entries[0]
         walk(root._ChildID, root)
 
-    def list_entries(self, *, include_storages=True, include_streams=True):
-        r = []
-
-        def walk(entry, prefixes):
-            for child in entry.children:
-                if (child.type == OBJECT_STORAGE and include_storages
-                        or child.type == OBJECT_STREAM and include_streams):
-                    r.append(prefixes + (child.name,))
-                walk(child, prefixes + (child.name,))
-
-        walk(self.root_storage, ())
-
-        return r
-
 if __name__ == '__main__':
     f = OleFile('testfile.hwp')
-    # f = OleFile(open('testfile.hwp', 'rb'))
 
-    for x in f.list_entries(include_storages=False):
-        print('/'.join(x))
+    for path in f.list_entries():
+        print('/'.join(path))
