@@ -27,8 +27,11 @@ Result:
     PrvText
     FileHeader
     DocInfo
+    DocOptions
     DocOptions/_LinkDoc
+    BodyText
     BodyText/Section0
+    Scripts
     Scripts/DefaultJScript
     Scripts/JScriptVersion
     HwpSummaryInformation
