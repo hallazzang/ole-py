@@ -1,3 +1,5 @@
+import io
+
 from utils import *
 
 MAXREGSECT = 0xfffffffa
@@ -80,7 +82,11 @@ class OleFile:
     def __init__(self, fp):
         if isinstance(fp, str):
             fp = open(fp, 'rb')
-        elif not isinstance(fp, file):
+        elif isinstance(fp, bytes):
+            if len(fp) < 512:  # Minimum OLE file size
+                raise RuntimeError('data is too small')
+            fp = io.BytesIO(fp)
+        elif not hasattr(fp, 'read'):
             raise RuntimeError('fp must be opened file object or string')
         elif not fp.mode.startswith('rb'):
             raise RuntimeError('file must be opened with mode rb')
@@ -172,7 +178,8 @@ class OleFile:
         return r
 
 if __name__ == '__main__':
-    f = OleFile('testfile.hwp')
+    # f = OleFile('testfile.hwp')
+    # f = OleFile(open('testfile.hwp', 'rb'))
 
     for x in f.list_entries(include_storages=False):
         print('/'.join(x))
