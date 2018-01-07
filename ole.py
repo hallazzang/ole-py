@@ -289,11 +289,9 @@ class OleFile:
 
             walk(entry._LeftSiblingID, parent)
             walk(entry._RightSiblingID, parent)
-
             walk(entry._ChildID, entry)
 
-        root = self._directory_entries[0]
-        walk(root._ChildID, root)
+        walk(self._directory_entries[0]._ChildID, self._directory_entries[0])
 
 if __name__ == '__main__':
     f = OleFile('testfile.hwp')
