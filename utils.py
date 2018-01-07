@@ -49,8 +49,6 @@ class StructureMeta(type):
     def __new__(cls, clsname, bases, clsdict):
         if '_fields' not in clsdict:
             raise RuntimeError('Structure must provide its _fields')
-        clsdict['__slots__'] = [name for name, _ in clsdict['_fields']]
-
         return super().__new__(cls, clsname, bases, clsdict)
 
 class Structure(metaclass=StructureMeta):
