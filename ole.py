@@ -16,7 +16,7 @@ NOSTREAM = 0xffffffff
 OBJECT_STORAGE = 0x01
 OBJECT_STREAM = 0x02
 
-class FileHeader(Structure):
+class Header(Structure):
     _fields = (
         ('_HeaderSignature', '8s'),
         ('_HeaderCLSID', '16s'),
@@ -121,7 +121,7 @@ class OleFile:
     def header(self):
         if not hasattr(self, '_header'):
             self.fp.seek(0)
-            self._header = FileHeader.make(self.fp.read(512))
+            self._header = Header.make(self.fp.read(512))
             self._header.validate()
 
         return self._header
