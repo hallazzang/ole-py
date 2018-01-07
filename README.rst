@@ -9,40 +9,53 @@ You can read the details of MS OLE file(a.k.a Compound File) `here
 Quickstart
 ----------
 
+List entries:
+
 .. code:: python
 
     from ole import OleFile
-    
+
     f = OleFile('testfile.hwp')
 
-    print('entries:')
-    for path in f.list_entries():
-        print('/'.join(path))
-        
-    print('=' * 80)
+    print('ID   SIZE      PATH')
+    print('-' * 50)
+    for path in f.list_entries(include_storages=False):
+        entry = f.get_entry(path)
+        name = b'/'.join(x.encode('unicode-escape') for x in path).decode()
+        print('%-3d  %-8d  %s' % (entry.id, entry.stream_size, name))
 
-    print('preview text:')
+Result:
+
+.. code::
+
+    ID   SIZE      PATH
+    --------------------------------------------------
+    4    505       \x05HwpSummaryInformation
+    12   31042     BodyText/Section0
+    2    2160      DocInfo
+    11   524       DocOptions/_LinkDoc
+    1    256       FileHeader
+    5    3461      PrvImage
+    6    2046      PrvText
+    10   136       Scripts/DefaultJScript
+    9    13        Scripts/JScriptVersion
+
+Get stream data:
+
+.. code:: python
+
+    from ole import OleFile
+
+    f = OleFile('testfile.hwp')
+
+    print('Preview text:')
     print(f.get_stream('PrvText').decode('utf-16le'))
 
 Result:
 
 .. code::
 
-    entries:
-    Scripts
-    Scripts/DefaultJScript
-    Scripts/JScriptVersion
-    HwpSummaryInformation
-    PrvImage
-    PrvText
-    FileHeader
-    DocInfo
-    DocOptions
-    DocOptions/_LinkDoc
-    BodyText
-    BodyText/Section0
-    ================================================================================
-    preview text:
+    Preview text:
     2018년 육군 전문특기병(어학병 포함) 모집 일정
     <특기명><모집인원><접수기간><1차발표><면접일시><면접장소><최종발표><입영시기>
     <영어어학병><55><2017-11-03><~><2017-11-14><2017-11-14><2017-12-07   2017-12-07><09:00
