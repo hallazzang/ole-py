@@ -13,6 +13,7 @@ FREESECT = 0xffffffff
 MAXREGSID = 0xfffffffa
 NOSTREAM = 0xffffffff
 
+OBJECT_ROOT_STORAGE = 0x05
 OBJECT_STORAGE = 0x01
 OBJECT_STREAM = 0x02
 
@@ -82,6 +83,10 @@ class DirectoryEntry(Structure):
         self._children = set()
 
     @property
+    def id(self):
+        return self._id
+
+    @property
     def name(self):
         return self._DirectoryEntryName.decode('utf-16le').rstrip('\x00')
 
@@ -95,9 +100,13 @@ class DirectoryEntry(Structure):
 
     @property
     def start_sector(self):
-        if self.type != OBJECT_STREAM:
+        if self.type not in(OBJECT_ROOT_STORAGE, OBJECT_STREAM):
             return None
         return self._StartingSectorLocation
+
+    @property
+    def stream_size(self):
+        return self._StreamSize
 
     @property
     def children(self):
@@ -159,29 +168,43 @@ class OleFile:
         return 1 << self.header._SectorShift
 
     @property
+    def mini_sector_size(self):
+        return 1 << self.header._MiniSectorShift
+
+    @property
     def FAT(self):
         if not hasattr(self, '_FAT'):
             FAT_sectors = self.header._DIFAT[:self.header._NumberOfFATSectors]
 
             sector = self.header._FirstDIFATSectorLocation
             for i in range(self.header._NumberOfDIFATSectors):
-                DIFAT = bytes_to_ints(self.read_sector(sector))
+                DIFAT = bytes_to_ints(self._read_sector(sector))
                 FAT_sectors += DIFAT[:-1]
                 sector = DIFAT[-1]
 
             self._FAT = bytes_to_ints(
-                b''.join(self.read_sector(x) for x in FAT_sectors))
+                b''.join(self._read_sector(x) for x in FAT_sectors))
 
         return self._FAT
 
     @property
+    def miniFAT(self):
+        if not hasattr(self, '_miniFAT'):
+            self._miniFAT = bytes_to_ints(self._read_stream(
+                self.header._FirstMiniFATSectorLocation))
+
+        return self._miniFAT
+
+    @property
     def directory_entries(self):
         if not hasattr(self, '_directory_entries'):
-            b = self.read_stream(self.header._FirstDirectorySectorLocation)
+            b = self._read_stream(
+                self.header._FirstDirectorySectorLocation)
             self._directory_entries = [
                 DirectoryEntry.make(b[x*128:(x+1)*128])
                 for x in range(len(b)//128)]
-            for entry in self._directory_entries:
+            for i, entry in enumerate(self._directory_entries):
+                entry._id = i
                 entry.validate()
             self._build_directory_tree()
 
@@ -190,17 +213,6 @@ class OleFile:
     @property
     def root_storage(self):
         return self.directory_entries[0]
-
-    def read_sector(self, sector):
-        self.fp.seek((sector+1) * self.sector_size)
-        return self.fp.read(self.sector_size)
-
-    def read_stream(self, sector):
-        chunks = []
-        while sector != ENDOFCHAIN:
-            chunks.append(self.read_sector(sector))
-            sector = self.FAT[sector]
-        return b''.join(chunks)
 
     def list_entries(self, *, include_storages=True, include_streams=True):
         r = []
@@ -215,6 +227,41 @@ class OleFile:
         walk(self.root_storage, ())
 
         return r
+
+    def get_stream(self, path):
+        if isinstance(path, (tuple, list)):
+            path = '/'.join(path)
+
+        entry = self._find_entry(path)
+        if entry.type != 0x02:
+            raise RuntimeError('entry type is not stream')
+
+        if entry.stream_size < self.header._MiniStreamCutoffSize:
+            return self._read_mini_stream(entry.start_sector)
+        else:
+            return self._read_stream(entry.start_sector)
+
+    def _read_sector(self, sector):
+        self.fp.seek((sector+1) * self.sector_size)
+        return self.fp.read(self.sector_size)
+
+    def _read_stream(self, sector):
+        chunks = []
+        while sector != ENDOFCHAIN:
+            chunks.append(self._read_sector(sector))
+            sector = self.FAT[sector]
+        return b''.join(chunks)
+
+    def _read_mini_sector(self, sector):
+        b = self._read_stream(self.root_storage.start_sector)
+        return b[sector*self.mini_sector_size:(sector+1)*self.mini_sector_size]
+
+    def _read_mini_stream(self, sector):
+        chunks = []
+        while sector != ENDOFCHAIN:
+            chunks.append(self._read_mini_sector(sector))
+            sector = self.miniFAT[sector]
+        return b''.join(chunks)
 
     def _build_directory_tree(self):
         def walk(entry_id, parent):
@@ -233,8 +280,28 @@ class OleFile:
         root = self._directory_entries[0]
         walk(root._ChildID, root)
 
+    def _find_entry(self, path):
+        if isinstance(path, str):
+            path = path.split('/')
+
+        entry = self.root_storage
+        for name in path:
+            for child in entry.children:
+                if child.name == name:
+                    break
+            else:
+                return None
+            entry = child
+
+        return entry
+
 if __name__ == '__main__':
     f = OleFile('testfile.hwp')
 
+    print('entries:')
     for path in f.list_entries():
         print('/'.join(path))
+    print('=' * 80)
+
+    print('preview text:')
+    print(f.get_stream('PrvText').decode('utf-16le'))
