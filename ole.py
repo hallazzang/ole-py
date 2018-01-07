@@ -226,13 +226,28 @@ class OleFile:
 
         walk(self.root_storage, ())
 
-        return r
+        return sorted(r)
+
+    def get_entry(self, path):
+        if isinstance(path, str):
+            path = path.split('/')
+
+        entry = self.root_storage
+        for name in path:
+            for child in entry.children:
+                if child.name == name:
+                    break
+            else:
+                return None
+            entry = child
+
+        return entry
 
     def get_stream(self, path):
         if isinstance(path, (tuple, list)):
             path = '/'.join(path)
 
-        entry = self._find_entry(path)
+        entry = self.get_entry(path)
         if entry.type != 0x02:
             raise RuntimeError('entry type is not stream')
 
@@ -280,29 +295,12 @@ class OleFile:
         root = self._directory_entries[0]
         walk(root._ChildID, root)
 
-    def _find_entry(self, path):
-        if isinstance(path, str):
-            path = path.split('/')
-
-        entry = self.root_storage
-        for name in path:
-            for child in entry.children:
-                if child.name == name:
-                    break
-            else:
-                return None
-            entry = child
-
-        return entry
-
 if __name__ == '__main__':
     f = OleFile('testfile.hwp')
 
-    print('entries:')
-    for path in f.list_entries():
-        print('/'.join(path))
-
-    print('=' * 80)
-
-    print('preview text:')
-    hexdump(f.get_stream('PrvText'))
+    print('ID   SIZE      PATH')
+    print('-' * 50)
+    for path in f.list_entries(include_storages=False):
+        entry = f.get_entry(path)
+        name = b'/'.join(x.encode('unicode-escape') for x in path).decode()
+        print('%-3d  %-8d  %s' % (entry.id, entry.stream_size, name))
