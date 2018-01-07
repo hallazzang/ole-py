@@ -6,13 +6,11 @@ FATSECT = 0xfffffffd
 ENDOFCHAIN = 0xfffffffe
 FREESECT = 0xffffffff
 
-UNALLOCATED = 0x00
-STORAGE = 0x01
-STREAM = 0x02
-ROOT_STORAGE = 0x05
-
 MAXREGSID = 0xfffffffa
 NOSTREAM = 0xffffffff
+
+OBJECT_STORAGE = 0x01
+OBJECT_STREAM = 0x02
 
 class FileHeader(Structure):
     _fields = (
@@ -59,6 +57,20 @@ class DirectoryEntry(Structure):
     @property
     def name(self):
         return self._DirectoryEntryName.decode('utf-16le').rstrip('\x00')
+
+    @property
+    def type(self):
+        return self._ObjectType
+
+    @property
+    def CLSID(self):
+        return self._CLSID
+
+    @property
+    def start_sector(self):
+        if self.type != OBJECT_STREAM:
+            return None
+        return self._StartingSectorLocation
 
     @property
     def children(self):
@@ -113,6 +125,10 @@ class OleFile:
 
         return self._directory_entries
 
+    @property
+    def root_storage(self):
+        return self.directory_entries[0]
+
     def read_sector(self, sector):
         self.fp.seek((sector+1) * self.sector_size)
         return self.fp.read(self.sector_size)
@@ -141,19 +157,22 @@ class OleFile:
         root = self._directory_entries[0]
         walk(root._ChildID, root)
 
-    @property
-    def streams(self):
-        if not hasattr(self, '_streams'):
-            pass
+    def list_entries(self, *, include_storages=True, include_streams=True):
+        r = []
 
-        return self._streams
+        def walk(entry, prefixes):
+            for child in entry.children:
+                if (child.type == OBJECT_STORAGE and include_storages
+                    or child.type == OBJECT_STREAM and include_streams):
+                    r.append(prefixes + (child.name,))
+                walk(child, prefixes + (child.name,))
+
+        walk(self.root_storage, ())
+
+        return r
 
 if __name__ == '__main__':
     f = OleFile('testfile.hwp')
 
-    def walk(entry):
-        print(entry.name)
-        for child in entry.children:
-            walk(child)
-
-    walk(f.directory_entries[0])
+    for x in f.list_entries(include_storages=False):
+        print('/'.join(x))
