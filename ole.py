@@ -2,6 +2,8 @@ import io
 
 from utils import *
 
+SIGNATURE = b'\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1'
+
 MAXREGSECT = 0xfffffffa
 DIFSECT = 0xfffffffc
 FATSECT = 0xfffffffd
@@ -97,6 +99,7 @@ class OleFile:
         if not hasattr(self, '_header'):
             self.fp.seek(0)
             self._header = FileHeader.make(self.fp.read(512))
+            self._validate_header()
 
         return self._header
 
@@ -177,8 +180,31 @@ class OleFile:
 
         return r
 
+    def _validate_header(self):
+        if self._header._HeaderSignature != SIGNATURE:
+            raise RuntimeError('invalid header signature')
+        if self._header._HeaderCLSID != b'\x00' * 16:
+            raise RuntimeError('invalid header CLSID')
+        if self._header._MinorVersion != 0x003e:
+            raise RuntimeError('invalid minor version')
+        if self._header._MajorVersion not in (0x0003, 0x0004):
+            raise RuntimeError('invalid major version')
+        if self._header._ByteOrder != 0xfffe:
+            raise RuntimeError('invalid byte order')
+        if self._header._SectorShift not in (0x0009, 0x000c):
+            raise RuntimeError('invalid sector shift')
+        if self._header._MiniSectorShift != 0x0006:
+            raise RuntimeError('invalid mini sector shift')
+        if self._header._Reserved != b'\x00' * 6:
+            raise RuntimeError('invalid reserved')
+        if (self._header._MajorVersion == 3
+            and self._header._NumberOfDirectorySectors != 0):
+            raise RuntimeError('invalid number of directory sectors')
+        if self._header._MiniStreamCutoffSize != 0x00001000:
+            raise RuntimeError('invalid mini stream cutoff size')
+
 if __name__ == '__main__':
-    # f = OleFile('testfile.hwp')
+    f = OleFile('testfile.hwp')
     # f = OleFile(open('testfile.hwp', 'rb'))
 
     for x in f.list_entries(include_storages=False):
