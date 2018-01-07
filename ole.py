@@ -38,6 +38,29 @@ class FileHeader(Structure):
         ('_DIFAT', '109I'),
     )
 
+    def validate(self):
+        if self._HeaderSignature != SIGNATURE:
+            raise RuntimeError('invalid header signature')
+        if self._HeaderCLSID != b'\x00' * 16:
+            raise RuntimeError('invalid header CLSID')
+        if self._MinorVersion != 0x003e:
+            raise RuntimeError('invalid minor version')
+        if self._MajorVersion not in (0x0003, 0x0004):
+            raise RuntimeError('invalid major version')
+        if self._ByteOrder != 0xfffe:
+            raise RuntimeError('invalid byte order')
+        if self._SectorShift not in (0x0009, 0x000c):
+            raise RuntimeError('invalid sector shift')
+        if self._MiniSectorShift != 0x0006:
+            raise RuntimeError('invalid mini sector shift')
+        if self._Reserved != b'\x00' * 6:
+            raise RuntimeError('invalid reserved')
+        if (self._MajorVersion == 3
+            and self._NumberOfDirectorySectors != 0):
+            raise RuntimeError('invalid number of directory sectors')
+        if self._MiniStreamCutoffSize != 0x00001000:
+            raise RuntimeError('invalid mini stream cutoff size')
+
 class DirectoryEntry(Structure):
     _fields = (
         ('_DirectoryEntryName', '64s'),
@@ -99,7 +122,7 @@ class OleFile:
         if not hasattr(self, '_header'):
             self.fp.seek(0)
             self._header = FileHeader.make(self.fp.read(512))
-            self._validate_header()
+            self._header.validate()
 
         return self._header
 
@@ -179,29 +202,6 @@ class OleFile:
         walk(self.root_storage, ())
 
         return r
-
-    def _validate_header(self):
-        if self._header._HeaderSignature != SIGNATURE:
-            raise RuntimeError('invalid header signature')
-        if self._header._HeaderCLSID != b'\x00' * 16:
-            raise RuntimeError('invalid header CLSID')
-        if self._header._MinorVersion != 0x003e:
-            raise RuntimeError('invalid minor version')
-        if self._header._MajorVersion not in (0x0003, 0x0004):
-            raise RuntimeError('invalid major version')
-        if self._header._ByteOrder != 0xfffe:
-            raise RuntimeError('invalid byte order')
-        if self._header._SectorShift not in (0x0009, 0x000c):
-            raise RuntimeError('invalid sector shift')
-        if self._header._MiniSectorShift != 0x0006:
-            raise RuntimeError('invalid mini sector shift')
-        if self._header._Reserved != b'\x00' * 6:
-            raise RuntimeError('invalid reserved')
-        if (self._header._MajorVersion == 3
-            and self._header._NumberOfDirectorySectors != 0):
-            raise RuntimeError('invalid number of directory sectors')
-        if self._header._MiniStreamCutoffSize != 0x00001000:
-            raise RuntimeError('invalid mini stream cutoff size')
 
 if __name__ == '__main__':
     f = OleFile('testfile.hwp')
