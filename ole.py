@@ -16,42 +16,53 @@ NOSTREAM = 0xffffffff
 
 class FileHeader(Structure):
     _fields = (
-        ('HeaderSignature', '8s'),
-        ('HeaderCLSID', '16s'),
-        ('MinorVersion', 'H'),
-        ('MajorVersion', 'H'),
-        ('ByteOrder', 'H'),
-        ('SectorShift', 'H'),
-        ('MiniSectorShift', 'H'),
-        ('Reserved', '6s'),
-        ('NumberOfDirectorySectors', 'I'),
-        ('NumberOfFATSectors', 'I'),
-        ('FirstDirectorySectorLocation', 'I'),
-        ('TransactionSignatureNumber', 'I'),
-        ('MiniStreamCutoffSize', 'I'),
-        ('FirstMiniFATSectorLocation', 'I'),
-        ('NumberOfMiniFATSectors', 'I'),
-        ('FirstDIFATSectorLocation', 'I'),
-        ('NumberOfDIFATSectors', 'I'),
-        ('DIFAT', '109I'),
+        ('_HeaderSignature', '8s'),
+        ('_HeaderCLSID', '16s'),
+        ('_MinorVersion', 'H'),
+        ('_MajorVersion', 'H'),
+        ('_ByteOrder', 'H'),
+        ('_SectorShift', 'H'),
+        ('_MiniSectorShift', 'H'),
+        ('_Reserved', '6s'),
+        ('_NumberOfDirectorySectors', 'I'),
+        ('_NumberOfFATSectors', 'I'),
+        ('_FirstDirectorySectorLocation', 'I'),
+        ('_TransactionSignatureNumber', 'I'),
+        ('_MiniStreamCutoffSize', 'I'),
+        ('_FirstMiniFATSectorLocation', 'I'),
+        ('_NumberOfMiniFATSectors', 'I'),
+        ('_FirstDIFATSectorLocation', 'I'),
+        ('_NumberOfDIFATSectors', 'I'),
+        ('_DIFAT', '109I'),
     )
 
 class DirectoryEntry(Structure):
     _fields = (
-        ('DirectoryEntryName', '64s'),
-        ('DirectoryEntryNameLength', 'H'),
-        ('ObjectType', 'B'),
-        ('ColorFlag', 'B'),
-        ('LeftSiblingID', 'I'),
-        ('RightSiblingID', 'I'),
-        ('ChildID', 'I'),
-        ('CLSID', '16s'),
-        ('StateBits', 'I'),
-        ('CreationTime', 'Q'),
-        ('ModifiedTime', 'Q'),
-        ('StartingSectorLocation', 'I'),
-        ('StreamSize', 'Q'),
+        ('_DirectoryEntryName', '64s'),
+        ('_DirectoryEntryNameLength', 'H'),
+        ('_ObjectType', 'B'),
+        ('_ColorFlag', 'B'),
+        ('_LeftSiblingID', 'I'),
+        ('_RightSiblingID', 'I'),
+        ('_ChildID', 'I'),
+        ('_CLSID', '16s'),
+        ('_StateBits', 'I'),
+        ('_CreationTime', 'Q'),
+        ('_ModifiedTime', 'Q'),
+        ('_StartingSectorLocation', 'I'),
+        ('_StreamSize', 'Q'),
     )
+
+    def __init__(self):
+        self._children = set()
+
+    @property
+    def name(self):
+        return self._DirectoryEntryName.decode('utf-16le').rstrip('\x00')
+
+    @property
+    def children(self):
+        return self._children
 
 class OleFile:
     def __init__(self, fp):
@@ -73,15 +84,15 @@ class OleFile:
 
     @property
     def sector_size(self):
-        return 1 << self.header.SectorShift
+        return 1 << self.header._SectorShift
 
     @property
     def FAT(self):
         if not hasattr(self, '_FAT'):
-            FAT_sectors = self.header.DIFAT[:self.header.NumberOfFATSectors]
+            FAT_sectors = self.header._DIFAT[:self.header._NumberOfFATSectors]
 
-            sector = self.header.FirstDIFATSectorLocation
-            for i in range(self.header.NumberOfDIFATSectors):
+            sector = self.header._FirstDIFATSectorLocation
+            for i in range(self.header._NumberOfDIFATSectors):
                 DIFAT = bytes_to_ints(self.read_sector(sector))
                 FAT_sectors += DIFAT[:-1]
                 sector = DIFAT[-1]
@@ -94,10 +105,11 @@ class OleFile:
     @property
     def directory_entries(self):
         if not hasattr(self, '_directory_entries'):
-            b = self.read_stream(self.header.FirstDirectorySectorLocation)
+            b = self.read_stream(self.header._FirstDirectorySectorLocation)
             self._directory_entries = [
                 DirectoryEntry.make(b[x*128:(x+1)*128])
                 for x in range(len(b)//128)]
+            self._build_directory_tree()
 
         return self._directory_entries
 
@@ -112,12 +124,36 @@ class OleFile:
             sector = self.FAT[sector]
         return b''.join(chunks)
 
+    def _build_directory_tree(self):
+        def walk(entry_id, parent):
+            if entry_id == NOSTREAM:
+                return
+            entry = self._directory_entries[entry_id]
+
+            if parent:
+                parent._children.add(entry)
+
+            walk(entry._LeftSiblingID, parent)
+            walk(entry._RightSiblingID, parent)
+
+            walk(entry._ChildID, entry)
+
+        root = self._directory_entries[0]
+        walk(root._ChildID, root)
+
+    @property
+    def streams(self):
+        if not hasattr(self, '_streams'):
+            pass
+
+        return self._streams
+
 if __name__ == '__main__':
     f = OleFile('testfile.hwp')
-    for d in f.directory_entries:
-        if d.ObjectType == STORAGE:
-            print('storage:', end='')
-        elif d.ObjectType == STREAM:
-            print('stream:', end='')
-        print(repr(d.DirectoryEntryName.decode('utf-16-le').rstrip('\x00')))
-        print(d.ChildID)
+
+    def walk(entry):
+        print(entry.name)
+        for child in entry.children:
+            walk(child)
+
+    walk(f.directory_entries[0])
