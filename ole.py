@@ -149,7 +149,7 @@ class OleFile:
                 raise RuntimeError('data is too small')
             fp = io.BytesIO(fp)
         elif not hasattr(fp, 'read'):
-            raise RuntimeError('fp must be opened file object or string')
+            raise RuntimeError('fp must be opened file object or str, or bytes')
         elif not fp.mode.startswith('rb'):
             raise RuntimeError('file must be opened with mode rb')
         self.fp = fp
