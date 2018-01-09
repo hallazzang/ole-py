@@ -9,7 +9,15 @@ You can read the details of MS OLE file(a.k.a Compound File) `here
 Quickstart
 ----------
 
-List entries:
+Installation
+~~~~~~~~~~~~
+
+.. code:: sh
+
+    $ pip3 install ole-py
+
+List entries
+~~~~~~~~~~~~
 
 .. code:: python
 
@@ -40,7 +48,8 @@ Result:
     10   136       Scripts/DefaultJScript
     9    13        Scripts/JScriptVersion
 
-Get stream data:
+Get stream data
+~~~~~~~~~~~~~~~
 
 .. code:: python
 
@@ -65,3 +74,7 @@ Result:
     <독일어어학병><1><2017-11-03><~><2017-11-14><없음><2017-12-04><13:00><2017-12-22><18년 1월><2><2018-05-24><~><2018-06-07><없음><2018-07-05><13:00><2018-07-27><18년 8월>
     <일본어어학병><2><2017-11-03><~><>椄
 
+License
+-------
+
+MIT.
