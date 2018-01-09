@@ -9,3 +9,4 @@ if __name__ == '__main__':
         entry = f.get_entry(path)
         name = b'/'.join(x.encode('unicode-escape') for x in path).decode()
         print('%-3d  %-8d  %s' % (entry.id, entry.stream_size, name))
+

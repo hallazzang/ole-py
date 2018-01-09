@@ -78,3 +78,4 @@ class Structure(metaclass=StructureMeta):
         fields = ', '.join(
             '%s=%r' % (name, getattr(self, name)) for name, _ in self._fields)
         return '%s(%s)' % (self.__class__.__name__, fields)
+
