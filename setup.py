@@ -8,7 +8,7 @@ def get_long_description(path):
 
 setup(
     name='ole-py',
-    version='0.0.1',
+    version='0.0.2',
     url='https://github.com/hallazzang/ole-py',
     license='MIT',
     author='Hanjun Kim',
@@ -28,6 +28,7 @@ setup(
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
         'Topic :: Software Development :: Libraries :: Python Modules',
     ]
 )
