@@ -15,7 +15,7 @@ setup(
     author_email='hallazzang@gmail.com',
     description='Lightweight Microsoft OLE file parser in pure Python',
     long_description=get_long_description('README.rst'),
-    py_modules=['ole'],
+    py_modules=['ole','utils'],
     python_requires='>=3',
     zip_safe=False,
     platforms='any',
