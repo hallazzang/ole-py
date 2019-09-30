@@ -1,20 +1,22 @@
 import os
 from setuptools import find_packages, setup
 
-def get_long_description(path):
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), path)
-    with open(path, encoding='utf-8') as f:
-        return f.read()
+here = os.path.abspath(os.path.dirname(__file__))
+
+with open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
+    long_description = f.read()
 
 setup(
     name='ole-py',
-    version='0.1.0',
+    version='0.1.1',
     url='https://github.com/hallazzang/ole-py',
     license='MIT',
     author='Hanjun Kim',
     author_email='hallazzang@gmail.com',
     description='Lightweight Microsoft OLE file parser in pure Python',
-    long_description=get_long_description('README.rst'),
+    long_description=long_description,
+    long_description_content_type='text/markdown',
+    include_package_data=True,
     packages=find_packages(),
     python_requires='>=3.4',
     classifiers=[
