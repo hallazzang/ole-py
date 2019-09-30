@@ -2,6 +2,8 @@
 ole-py
 ======
 
+.. image:: https://img.shields.io/pypi/v/ole-py?color=blue&style=flat-square   :alt: PyPI
+
 MS OLE file parser in pure Python.
 You can read the details of MS OLE file(a.k.a Compound File) `here
 <https://msdn.microsoft.com/ko-kr/library/dd942138.aspx>`_.
