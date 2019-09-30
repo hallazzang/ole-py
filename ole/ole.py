@@ -1,6 +1,6 @@
 import io
 
-from utils import *
+from .utils import *
 
 SIGNATURE = b'\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1'
 
