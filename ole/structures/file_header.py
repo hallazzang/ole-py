@@ -11,7 +11,7 @@ class FileHeader(Structure):
     mini_sector_shift = Field('H')
     reserved = Field('6s')
     num_dir_sectors = Field('I')
-    num_difat_sectors = Field('I')
+    num_fat_sectors = Field('I')
     first_dir_sector_loc = Field('I')
     tx_signature_no = Field('I')
     mini_stream_cutoff_size = Field('I')
