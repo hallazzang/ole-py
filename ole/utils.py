@@ -1,6 +1,6 @@
-import struct
 import io
 import itertools
+import struct
 
 from .constants import *
 
@@ -21,25 +21,14 @@ def read_at(fp, offset, n):
 
 
 class SectorReader:
-    def __init__(self, r, sector_size, start_sector, fat, offset_resolver):
-        sector = fat[start_sector]
-        if sector > MAXREGSECT and sector != ENDOFCHAIN:
-            raise RuntimeError(f'invalid sector chain')
-
-        sectors = []
-        sector = start_sector
-        while sector != ENDOFCHAIN:
-            sectors.append(sector)
-            sector = fat[sector]
-
-        self.r = r
+    def __init__(self, src, sector_size, sectors, offset_resolver, size=None):
+        self.src = src
         self.sector_size = sector_size
-        self.start_sector = start_sector
-        self.fat = fat
-        self.offset_resolver = offset_resolver
         self.sectors = sectors
+        self.offset_resolver = offset_resolver
+
         self.offset = 0
-        self.max_offset = sector_size * len(sectors)
+        self.max_offset = min(sector_size*len(sectors), size or float('inf'))
 
     def tell(self):
         return self.offset
@@ -58,6 +47,7 @@ class SectorReader:
             raise ValueError(f'invalid offset {new_offset}')
 
         self.offset = new_offset
+        return self.offset
 
     def read(self, size=-1):
         if self.offset >= self.max_offset:
@@ -73,8 +63,17 @@ class SectorReader:
             sector_offset = self.offset % self.sector_size
 
             to_read = min(size - read, self.sector_size - sector_offset)
-            chunks.append(read_at(self.r, offset + sector_offset, to_read))
+            chunks.append(read_at(self.src, offset + sector_offset, to_read))
             read += to_read
             self.offset += to_read
 
         return b''.join(chunks)
+
+
+def sector_chain(fat, starting_sector):
+    sectors = []
+    sector = starting_sector
+    while sector != ENDOFCHAIN:
+        sectors.append(sector)
+        sector = fat[sector]
+    return sectors
