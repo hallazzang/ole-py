@@ -1,81 +1,62 @@
-import math
-import string
 import struct
+import io
+import itertools
 
-printables = string.ascii_letters + string.digits + string.punctuation + ' '
+from .constants import *
 
-def hexdump(data, offset=0, size=None, *, group_by=16):
-    if isinstance(data, str):
-        data = data.encode()
-    if size is None:
-        size = len(data)
 
-    start = math.floor(offset / group_by) * group_by
-    end = math.ceil(min(len(data), offset + size) / group_by) * group_by
+def bytes_to_ints(b):
+    return [
+        struct.unpack('I', bytes(x))[0]
+        for x in itertools.zip_longest(*([iter(b)] * 4))]
 
-    print('┌' + '─'*10 + '┬' + '─'*(group_by*3+1) + '┬' + '─'*(group_by+2) + '┐')
 
-    print('│' + 'offset'.rjust(10) + '│ ', end='')
-    for i in range(group_by):
-        print('%2x' % i, end=' ')
-    print('│', end=' ')
-    for i in range(group_by):
-        print('%x' % i, end='')
-    print(' │')
+def read_at(fp, offset, n):
+    if fp.seek(offset) != offset:
+        raise RuntimeError(f'seek({offset}) operation failed')
+    b = fp.read(n)
+    if len(b) < n:
+        raise RuntimeError(f'read({n}) operation failed')
+    return b
 
-    print('├' + '─'*10 + '┼' + '─'*(group_by*3+1) + '┼' + '─'*(group_by+2) + '┤')
 
-    for i in range(start, end):
-        if i % group_by == 0:
-            print('│ %8x' % i, end=' │ ')
+class SectorReader:
+    def __init__(self, r, sector_size, start_sector, fat, offset_resolver):
+        sector = fat[start_sector]
+        if sector > MAXREGSECT and sector != ENDOFCHAIN:
+            raise RuntimeError(f'invalid sector chain')
 
-        if i < offset + size and i < len(data):
-            print('%02x' % data[i], end=' ')
-        else:
-            print('  ', end=' ')
+        sectors = []
+        sector = start_sector
+        while sector != ENDOFCHAIN:
+            sectors.append(sector)
+            sector = fat[sector]
 
-        if (i - start + 1) % group_by == 0:
-            print('│ ', end='')
+        self.r = r
+        self.sector_size = sector_size
+        self.start_sector = start_sector
+        self.fat = fat
+        self.offset_resolver = offset_resolver
+        self.sectors = sectors
+        self.offset = 0
+        self.max_offset = sector_size * len(sectors)
 
-            for j in range(i - group_by + 1, i + 1):
-                if chr(data[j]) in printables:
-                    print('%c' % chr(data[j]), end='')
-                else:
-                    print('.', end='')
-            print(' │')
+    def read(self, size=-1):
+        if self.offset >= self.max_offset:
+            return b''
 
-    print('└' + '─'*10 + '┴' + '─'*(group_by*3+1) + '┴' + '─'*(group_by+2) + '┘')
+        if size == -1:
+            size = self.max_offset - self.offset
 
-def bytes_to_ints(data):
-    return [struct.unpack('<I', data[x*4:(x+1)*4])[0] for x in range(len(data)//4)]
+        chunks = []
+        read = 0
+        while read < size:
+            offset = self.offset_resolver(self.sectors[self.offset // self.sector_size])
+            sector_offset = self.offset % self.sector_size
 
-class StructureMeta(type):
-    def __new__(cls, clsname, bases, clsdict):
-        if '_fields' not in clsdict:
-            raise RuntimeError('Structure must provide its _fields')
-        return super().__new__(cls, clsname, bases, clsdict)
+            to_read = min(size - read, self.sector_size - sector_offset)
+            chunks.append(read_at(self.r, offset + sector_offset, to_read))
+            read += to_read
+            self.offset += to_read
 
-class Structure(metaclass=StructureMeta):
-    _fields = ()
-
-    @classmethod
-    def make(cls, data):
-        s = cls()
-
-        offset = 0
-        for name, fmt in cls._fields:
-            if fmt[0] != '<':
-                fmt = '<' + fmt
-            val = struct.unpack_from(fmt, data, offset)
-            if len(val) == 1:
-                val = val[0]
-            setattr(s, name, val)
-            offset += struct.calcsize(fmt)
-
-        return s
-
-    def __repr__(self):
-        fields = ', '.join(
-            '%s=%r' % (name, getattr(self, name)) for name, _ in self._fields)
-        return '%s(%s)' % (self.__class__.__name__, fields)
-
+        return b''.join(chunks)
