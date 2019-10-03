@@ -41,6 +41,24 @@ class SectorReader:
         self.offset = 0
         self.max_offset = sector_size * len(sectors)
 
+    def tell(self):
+        return self.offset
+
+    def seek(self, offset, whence=0):
+        if whence == 0:
+            new_offset = offset
+        elif whence == 1:
+            new_offset = self.offset + offset
+        elif whence == 2:
+            new_offset = self.max_offset + offset
+        else:
+            raise ValueError(f'whence value {whence} unsupported')
+
+        if new_offset < 0:
+            raise ValueError(f'invalid offset {new_offset}')
+
+        self.offset = new_offset
+
     def read(self, size=-1):
         if self.offset >= self.max_offset:
             return b''
