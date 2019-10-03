@@ -29,54 +29,54 @@ class File:
         elif not is_binary_file(fp):
             raise TypeError('fp must be a binary file-like object')
 
-        self.fp = fp
+        self._fp = fp
 
-        self.header = FileHeader.from_bytes(read_at(self.fp, 0, 512))
+        self._header = FileHeader.from_bytes(read_at(self._fp, 0, 512))
 
-        self.build_fat()
-        self.build_minifat()
-        self.build_dir_tree()
+        self._build_fat()
+        self._build_minifat()
+        self._build_dir_tree()
 
     def close(self):
-        if hasattr(self.fp, 'close'):
-            self.fp.close()
+        if hasattr(self._fp, 'close'):
+            self._fp.close()
 
-    def read_sector(self, sector):
+    def _read_sector(self, sector):
         return read_at(
-            self.fp,
-            (sector+1) * self.header.sector_size,
-            self.header.sector_size)
+            self._fp,
+            (sector+1) * self._header.sector_size,
+            self._header.sector_size)
 
-    def build_fat(self):
-        sectors = self.header._difat[:self.header._num_fat_sectors]
+    def _build_fat(self):
+        sectors = self._header._difat[:self._header._num_fat_sectors]
 
-        if self.header._num_difat_sectors > 0:
-            sector = self.header._first_difat_sector
-            for i in range(self.header._num_difat_sectors):
-                b = self.read_sector(sector)
+        if self._header._num_difat_sectors > 0:
+            sector = self._header._first_difat_sector
+            for i in range(self._header._num_difat_sectors):
+                b = self._read_sector(sector)
                 difat = bytes_to_ints(b)
                 sectors.extend(difat[:-1])
                 sector = difat[-1]
 
-        self.fat = sum((bytes_to_ints(self.read_sector(sector)) for sector in sectors), [])
+        self._fat = sum((bytes_to_ints(self._read_sector(sector)) for sector in sectors), [])
 
-    def build_minifat(self):
+    def _build_minifat(self):
         reader = SectorReader(
-            self.fp,
-            self.header.sector_size,
-            sector_chain(self.fat, self.header._first_minifat_sector),
-            lambda sector: (sector+1) * self.header.sector_size,
+            self._fp,
+            self._header.sector_size,
+            sector_chain(self._fat, self._header._first_minifat_sector),
+            lambda sector: (sector+1) * self._header.sector_size,
         )
-        self.minifat = bytes_to_ints(reader.read())
+        self._minifat = bytes_to_ints(reader.read())
 
-    def build_dir_tree(self):
+    def _build_dir_tree(self):
         dir_entries = []
 
         reader = SectorReader(
-            self.fp,
-            self.header.sector_size,
-            sector_chain(self.fat, self.header._first_dir_sector),
-            lambda sector: (sector+1) * self.header.sector_size,
+            self._fp,
+            self._header.sector_size,
+            sector_chain(self._fat, self._header._first_dir_sector),
+            lambda sector: (sector+1) * self._header.sector_size,
         )
 
         while True:
@@ -107,13 +107,13 @@ class File:
             walk(dir_entry._child_id, dir_entry, new_path)
 
         walk(dir_entries[0]._child_id, dir_entries[0], ())
-        self.dir_entries = dir_entries
+        self._dir_entries = dir_entries
 
     def get_stream(self, path):
         if isinstance(path, str):
             path = path.split('/')
 
-        entry = self.dir_entries[0]
+        entry = self._dir_entries[0]
         for name in path:
             for child in entry._children:
                 if child.name == name:
@@ -125,25 +125,25 @@ class File:
         if entry._type != OBJECT_STREAM:
             raise TypeError('entry is not a stream')
 
-        if entry._stream_size < self.header._mini_stream_cutoff_size:
+        if entry._stream_size < self._header._mini_stream_cutoff_size:
             reader = SectorReader(
                 SectorReader(
-                    self.fp,
-                    self.header.sector_size,
-                    sector_chain(self.fat, self.dir_entries[0]._starting_sector),
-                    lambda sector: (sector+1) * self.header.sector_size,
+                    self._fp,
+                    self._header.sector_size,
+                    sector_chain(self._fat, self._dir_entries[0]._starting_sector),
+                    lambda sector: (sector+1) * self._header.sector_size,
                 ),
-                self.header.mini_sector_size,
-                sector_chain(self.minifat, entry._starting_sector),
-                lambda sector: sector * self.header.mini_sector_size,
+                self._header.mini_sector_size,
+                sector_chain(self._minifat, entry._starting_sector),
+                lambda sector: sector * self._header.mini_sector_size,
                 entry._stream_size,
             )
         else:
             reader = SectorReader(
-                self.fp,
-                self.header.sector_size,
+                self._fp,
+                self._header.sector_size,
                 sector_chain(self.fat, entry._starting_sector),
-                lambda sector: (sector+1) * self.header.sector_size,
+                lambda sector: (sector+1) * self._header.sector_size,
                 entry._stream_size,
             )
 
