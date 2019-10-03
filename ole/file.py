@@ -4,7 +4,12 @@ from .constants import *
 from .structures import FileHeader, DirectoryEntry
 from .storage import Storage
 from .stream import Stream
-from .utils import read_at, bytes_to_ints, SectorReader
+from .utils import (
+    SectorReader,
+    read_at,
+    bytes_to_ints,
+    sector_chain,
+)
 
 
 def is_binary_file(fp):
@@ -46,73 +51,103 @@ class File:
         sectors = self.header._difat[:self.header._num_fat_sectors]
 
         if self.header._num_difat_sectors > 0:
-            sector = self.header._first_difat_sector_loc
+            sector = self.header._first_difat_sector
             for i in range(self.header._num_difat_sectors):
                 b = self.read_sector(sector)
                 difat = bytes_to_ints(b)
                 sectors.extend(difat[:-1])
                 sector = difat[-1]
 
-        self.fat = []
-        for sector in sectors:
-            self.fat.extend(bytes_to_ints(self.read_sector(sector)))
+        self.fat = sum((bytes_to_ints(self.read_sector(sector)) for sector in sectors), [])
 
     def build_minifat(self):
-        r = SectorReader(
+        reader = SectorReader(
             self.fp,
             self.header.sector_size,
-            self.header._first_minifat_sector_loc,
-            self.fat,
-            lambda sector: (sector+1) * self.header.sector_size)
-        self.minifat = bytes_to_ints(r.read())
+            sector_chain(self.fat, self.header._first_minifat_sector),
+            lambda sector: (sector+1) * self.header.sector_size,
+        )
+        self.minifat = bytes_to_ints(reader.read())
 
     def build_dir_tree(self):
         dir_entries = []
 
-        r = SectorReader(
+        reader = SectorReader(
             self.fp,
             self.header.sector_size,
-            self.header._first_dir_sector_loc,
-            self.fat,
-            lambda sector: (sector+1) * self.header.sector_size)
+            sector_chain(self.fat, self.header._first_dir_sector),
+            lambda sector: (sector+1) * self.header.sector_size,
+        )
 
         while True:
-            b = r.read(128)
-            if not b:
+            bytes = reader.read(128)
+            if not bytes:
                 break
 
-            dir_entry = DirectoryEntry.from_bytes(b)
+            dir_entry = DirectoryEntry.from_bytes(bytes)
             if dir_entry._type == 0:
                 continue
+            dir_entry._children = []
 
             dir_entries.append(dir_entry)
 
         def walk(id, parent, path):
+            if id == NOSTREAM:
+                return
+
             dir_entry = dir_entries[id]
-
-            if dir_entry._left_sibling_id != NOSTREAM:
-                walk(dir_entry._left_sibling_id, parent, path)
-            if dir_entry._right_sibling_id != NOSTREAM:
-                walk(dir_entry._right_sibling_id, parent, path)
-
-            if dir_entry._type in (OBJECT_ROOT_STORAGE, OBJECT_STORAGE):
-                obj = Storage.from_dir_entry(dir_entry)
-            else:
-                obj = Stream.from_dir_entry(dir_entry)
-                obj.fp = self.fp
+            new_path = path + (dir_entry.name,)
+            dir_entry._path = new_path
 
             if parent:
-                parent.children.append(obj)
+                parent._children.append(dir_entry)
 
-            new_path = path + (obj.name,)
-            obj.path = new_path
+            walk(dir_entry._left_sibling_id, parent, path)
+            walk(dir_entry._right_sibling_id, parent, path)
+            walk(dir_entry._child_id, dir_entry, new_path)
 
-            if dir_entry._child_id != NOSTREAM:
-                walk(dir_entry._child_id, obj, new_path)
+        walk(dir_entries[0]._child_id, dir_entries[0], ())
+        self.dir_entries = dir_entries
 
-            return obj
+    def get_stream(self, path):
+        if isinstance(path, str):
+            path = path.split('/')
 
-        self.dir_tree_root = walk(0, None, ())
+        entry = self.dir_entries[0]
+        for name in path:
+            for child in entry._children:
+                if child.name == name:
+                    entry = child
+                    break
+            else:
+                raise KeyError(f'cannot find path {path}')
+
+        if entry._type != OBJECT_STREAM:
+            raise TypeError('entry is not a stream')
+
+        if entry._stream_size < self.header._mini_stream_cutoff_size:
+            reader = SectorReader(
+                SectorReader(
+                    self.fp,
+                    self.header.sector_size,
+                    sector_chain(self.fat, self.dir_entries[0]._starting_sector),
+                    lambda sector: (sector+1) * self.header.sector_size,
+                ),
+                self.header.mini_sector_size,
+                sector_chain(self.minifat, entry._starting_sector),
+                lambda sector: sector * self.header.mini_sector_size,
+                entry._stream_size,
+            )
+        else:
+            reader = SectorReader(
+                self.fp,
+                self.header.sector_size,
+                sector_chain(self.fat, entry._starting_sector),
+                lambda sector: (sector+1) * self.header.sector_size,
+                entry._stream_size,
+            )
+
+        return Stream(entry._path, entry._stream_size, reader)
 
 
 def open(fp):

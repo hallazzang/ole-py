@@ -1,15 +1,11 @@
 class Storage:
-    name = None
-    path = None
-    children = None
-
-    @staticmethod
-    def from_dir_entry(dir_entry):
-        storage = Storage()
-        storage.name = dir_entry.name
-        storage.children = []
-
-        return storage
+    def __init__(self, path):
+        self._path = path
+        self._children = []
 
     def __repr__(self):
-        return f'<Storage name={self.name} path={self.path}>'
+        return f'<Storage path={path}>'
+
+    @property
+    def path(self):
+        return '/'.join(self._path)
