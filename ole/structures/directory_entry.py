@@ -15,3 +15,7 @@ class DirectoryEntry(Structure):
     modified_time = Field('Q')
     starting_sector_loc = Field('I')
     stream_size = Field('Q')
+
+    @property
+    def name(self):
+        return self.entry_name.decode('utf-16le').rstrip('\x00')

@@ -20,3 +20,11 @@ class FileHeader(Structure):
     first_difat_sector_loc = Field('I')
     num_difat_sectors = Field('I')
     difat = Field('109I')
+
+    @property
+    def sector_size(self):
+        return 1 << self.sector_shift
+
+    @property
+    def mini_sector_size(self):
+        return 1 << self.mini_sector_shift
