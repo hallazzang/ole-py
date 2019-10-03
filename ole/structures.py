@@ -70,12 +70,12 @@ class FileHeader(Structure):
         ('_reserved', '6s'),
         ('_num_dir_sectors', 'I'),
         ('_num_fat_sectors', 'I'),
-        ('_first_dir_sector_loc', 'I'),
+        ('_first_dir_sector', 'I'),
         ('_tx_signature_no', 'I'),
         ('_mini_stream_cutoff_size', 'I'),
-        ('_first_minifat_sector_loc', 'I'),
+        ('_first_minifat_sector', 'I'),
         ('_num_minifat_sectors', 'I'),
-        ('_first_difat_sector_loc', 'I'),
+        ('_first_difat_sector', 'I'),
         ('_num_difat_sectors', 'I'),
         ('_difat', '109I'),
     )
@@ -102,7 +102,7 @@ class DirectoryEntry(Structure):
         ('_state_bits', 'I'),
         ('_creation_time', 'Q'),
         ('_modified_time', 'Q'),
-        ('_starting_sector_loc', 'I'),
+        ('_starting_sector', 'I'),
         ('_stream_size', 'Q'),
     )
 
