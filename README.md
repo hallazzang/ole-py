@@ -74,4 +74,4 @@ Preview text:
 
 MIT.
 
-[shieldsio-pypi-badge]: https://img.shields.io/pypi/v/ole-py?style=flat-square
+[shieldsio-pypi-badge]: https://img.shields.io/pypi/v/ole-py?style=flat-square&color=blue
