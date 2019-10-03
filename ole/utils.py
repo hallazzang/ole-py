@@ -1,81 +1,79 @@
-import math
-import string
+import io
+import itertools
 import struct
 
-printables = string.ascii_letters + string.digits + string.punctuation + ' '
+from .constants import *
 
-def hexdump(data, offset=0, size=None, *, group_by=16):
-    if isinstance(data, str):
-        data = data.encode()
-    if size is None:
-        size = len(data)
 
-    start = math.floor(offset / group_by) * group_by
-    end = math.ceil(min(len(data), offset + size) / group_by) * group_by
+def bytes_to_ints(b):
+    return [
+        struct.unpack('I', bytes(x))[0]
+        for x in itertools.zip_longest(*([iter(b)] * 4))]
 
-    print('┌' + '─'*10 + '┬' + '─'*(group_by*3+1) + '┬' + '─'*(group_by+2) + '┐')
 
-    print('│' + 'offset'.rjust(10) + '│ ', end='')
-    for i in range(group_by):
-        print('%2x' % i, end=' ')
-    print('│', end=' ')
-    for i in range(group_by):
-        print('%x' % i, end='')
-    print(' │')
+def read_at(fp, offset, n):
+    if fp.seek(offset) != offset:
+        raise RuntimeError(f'seek({offset}) operation failed')
+    b = fp.read(n)
+    if len(b) < n:
+        raise RuntimeError(f'read({n}) operation failed')
+    return b
 
-    print('├' + '─'*10 + '┼' + '─'*(group_by*3+1) + '┼' + '─'*(group_by+2) + '┤')
 
-    for i in range(start, end):
-        if i % group_by == 0:
-            print('│ %8x' % i, end=' │ ')
+class SectorReader:
+    def __init__(self, src, sector_size, sectors, offset_resolver, size=None):
+        self.src = src
+        self.sector_size = sector_size
+        self.sectors = sectors
+        self.offset_resolver = offset_resolver
 
-        if i < offset + size and i < len(data):
-            print('%02x' % data[i], end=' ')
+        self.offset = 0
+        self.max_offset = min(sector_size*len(sectors), size or float('inf'))
+
+    def tell(self):
+        return self.offset
+
+    def seek(self, offset, whence=0):
+        if whence == 0:
+            new_offset = offset
+        elif whence == 1:
+            new_offset = self.offset + offset
+        elif whence == 2:
+            new_offset = self.max_offset + offset
         else:
-            print('  ', end=' ')
+            raise ValueError(f'whence value {whence} unsupported')
 
-        if (i - start + 1) % group_by == 0:
-            print('│ ', end='')
+        if new_offset < 0:
+            raise ValueError(f'invalid offset {new_offset}')
 
-            for j in range(i - group_by + 1, i + 1):
-                if chr(data[j]) in printables:
-                    print('%c' % chr(data[j]), end='')
-                else:
-                    print('.', end='')
-            print(' │')
+        self.offset = new_offset
+        return self.offset
 
-    print('└' + '─'*10 + '┴' + '─'*(group_by*3+1) + '┴' + '─'*(group_by+2) + '┘')
+    def read(self, size=-1):
+        if self.offset >= self.max_offset:
+            return b''
 
-def bytes_to_ints(data):
-    return [struct.unpack('<I', data[x*4:(x+1)*4])[0] for x in range(len(data)//4)]
+        if size == -1:
+            size = self.max_offset - self.offset
 
-class StructureMeta(type):
-    def __new__(cls, clsname, bases, clsdict):
-        if '_fields' not in clsdict:
-            raise RuntimeError('Structure must provide its _fields')
-        return super().__new__(cls, clsname, bases, clsdict)
+        chunks = []
+        read = 0
+        while read < size:
+            offset = self.offset_resolver(self.sectors[self.offset // self.sector_size])
+            sector_offset = self.offset % self.sector_size
 
-class Structure(metaclass=StructureMeta):
-    _fields = ()
+            to_read = min(size - read, self.sector_size - sector_offset)
+            chunks.append(read_at(self.src, offset + sector_offset, to_read))
+            read += to_read
+            self.offset += to_read
 
-    @classmethod
-    def make(cls, data):
-        s = cls()
+        return b''.join(chunks)
 
-        offset = 0
-        for name, fmt in cls._fields:
-            if fmt[0] != '<':
-                fmt = '<' + fmt
-            val = struct.unpack_from(fmt, data, offset)
-            if len(val) == 1:
-                val = val[0]
-            setattr(s, name, val)
-            offset += struct.calcsize(fmt)
 
-        return s
-
-    def __repr__(self):
-        fields = ', '.join(
-            '%s=%r' % (name, getattr(self, name)) for name, _ in self._fields)
-        return '%s(%s)' % (self.__class__.__name__, fields)
-
+def sector_chain(fat, starting_sector):
+    sectors = []
+    sector = starting_sector
+    while sector != ENDOFCHAIN:
+        sectors.append(sector)
+        sector = fat[sector]
+    return sectors

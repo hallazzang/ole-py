@@ -1,1 +1,1 @@
-from .ole import OleFile
+from .file import open
