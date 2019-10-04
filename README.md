@@ -14,46 +14,15 @@ You can read the details of MS OLE file(a.k.a Compound File)
 $ pip install ole-py
 ```
 
-### List entries
-
-```python
-from ole import OleFile
-
-f = OleFile('testfile.hwp')
-
-print('ID   SIZE      PATH')
-print('-' * 50)
-for path in f.list_entries(include_storages=False):
-    entry = f.get_entry(path)
-    name = b'/'.join(x.encode('unicode-escape') for x in path).decode()
-    print('%-3d  %-8d  %s' % (entry.id, entry.stream_size, name))
-```
-
-Result:
-
-```
-ID   SIZE      PATH
---------------------------------------------------
-4    505       \x05HwpSummaryInformation
-12   31042     BodyText/Section0
-2    2160      DocInfo
-11   524       DocOptions/_LinkDoc
-1    256       FileHeader
-5    3461      PrvImage
-6    2046      PrvText
-10   136       Scripts/DefaultJScript
-9    13        Scripts/JScriptVersion
-```
-
 ### Get stream data
 
 ```python
-from ole import OleFile
+import ole
 
-f = OleFile('testfile.hwp')
+f = ole.open('testfile.hwp')
 
 print('Preview text:')
-print(f.get_stream('PrvText').decode('utf-16le'))
+print(f.get_stream('PrvText').read().decode('utf-16le'))
 ```
 
 Result:
@@ -67,7 +36,7 @@ Preview text:
 <프랑스어어학병><1><2018-05-24><~><2018-06-07><없음><2018-07-04><13:00><2018-07-27><18년 8월><1><2018-09-27><~><2018-10-11><없음><2018-11-06><13:00><2018-11-23><18년 12월>
 <스페인어어학병><1><2018-04-25><~><2018-05-09><없음><2018-06-12><13:00><2018-06-22><18년 7월><1><2018-09-27><~><2018-10-11><없음><2018-11-07><13:00><2018-11-23><18년 12월>
 <독일어어학병><1><2017-11-03><~><2017-11-14><없음><2017-12-04><13:00><2017-12-22><18년 1월><2><2018-05-24><~><2018-06-07><없음><2018-07-05><13:00><2018-07-27><18년 8월>
-<일본어어학병><2><2017-11-03><~><>椄
+<일본어어학병><2><2017-11-03><~><>
 ```
 
 ## License
