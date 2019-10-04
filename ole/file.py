@@ -109,7 +109,7 @@ class File:
         walk(dir_entries[0]._child_id, dir_entries[0], ())
         self._dir_entries = dir_entries
 
-    def get_stream(self, path):
+    def _get_dir_entry(self, path):
         if isinstance(path, str):
             path = path.split('/')
 
@@ -121,6 +121,18 @@ class File:
                     break
             else:
                 raise KeyError(f'cannot find path {path}')
+
+        return entry
+
+    def exists(self, path):
+        try:
+            self._get_dir_entry(path)
+        except KeyError:
+            return False
+        return True
+
+    def get_stream(self, path):
+        entry = self._get_dir_entry(path)
 
         if entry._type != OBJECT_STREAM:
             raise TypeError('entry is not a stream')
