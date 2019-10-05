@@ -37,6 +37,12 @@ class File:
         self._build_minifat()
         self._build_dir_tree()
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
     def close(self):
         if hasattr(self._fp, 'close'):
             self._fp.close()
