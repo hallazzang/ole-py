@@ -1,4 +1,5 @@
 import io
+import itertools
 
 from .constants import *
 from .structures import FileHeader, DirectoryEntry
@@ -94,6 +95,7 @@ class File:
             if dir_entry._type == 0:
                 continue
             dir_entry._children = []
+            dir_entry._path = ()
 
             dir_entries.append(dir_entry)
 
@@ -129,6 +131,13 @@ class File:
                 raise KeyError(f'cannot find path {path}')
 
         return entry
+
+    def list_streams(self):
+        return [
+            '/'.join(entry._path)
+            for entry in itertools.islice(self._dir_entries, 1, None)
+            if entry._type == OBJECT_STREAM
+        ]
 
     def exists(self, path):
         try:
