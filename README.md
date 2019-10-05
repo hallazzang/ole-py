@@ -2,35 +2,31 @@
 
 [![shieldsio-pypi-badge]](https://pypi.org/project/ole-py/)
 
-MS OLE file parser in pure Python.
-You can read the details of MS OLE file(a.k.a Compound File)
-[here](https://msdn.microsoft.com/ko-kr/library/dd942138.aspx).
+Microsoft OLE file parser in pure Python.
+You can read more about OLE file at [here](https://msdn.microsoft.com/ko-kr/library/dd942138.aspx).
 
-## Quickstart
+## Installation
 
-### Installation
-
-```bash
-$ pip install ole-py
+```
+pip install ole-py
 ```
 
-### Get stream data
+## Example
 
 ```python
 import ole
 
 with ole.open('examples\\testfile.hwp') as f:
-    print('Streams:')
-    print('\n'.join(f.list_streams()))
-
-    print('Preview text:')
+    print(f.list_streams())
+    print('=' * 40)
     print(f.get_stream('PrvText').read().decode('utf-16le'))
 ```
 
 Result:
 
 ```
-Preview text:
+('FileHeader', 'DocInfo', '\x05HwpSummaryInformation', 'PrvImage', 'PrvText', 'Scripts/JScriptVersion', 'Scripts/DefaultJScript', 'DocOptions/_LinkDoc', 'BodyText/Section0')
+========================================
 2018년 육군 전문특기병(어학병 포함) 모집 일정
 <특기명><모집인원><접수기간><1차발표><면접일시><면접장소><최종발표><입영시기>
 <영어어학병><55><2017-11-03><~><2017-11-14><2017-11-14><2017-12-07   2017-12-07><09:00
@@ -43,6 +39,6 @@ Preview text:
 
 ## License
 
-MIT.
+MIT
 
 [shieldsio-pypi-badge]: https://img.shields.io/pypi/v/ole-py?style=flat-square&color=blue
