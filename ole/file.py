@@ -133,11 +133,11 @@ class File:
         return entry
 
     def list_streams(self):
-        return [
+        return tuple(
             '/'.join(entry._path)
             for entry in itertools.islice(self._dir_entries, 1, None)
             if entry._type == OBJECT_STREAM
-        ]
+        )
 
     def exists(self, path):
         try:
