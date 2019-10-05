@@ -53,7 +53,7 @@ class SectorReader:
         if self.offset >= self.max_offset:
             return b''
 
-        if size == -1:
+        if size == -1 or size > self.max_offset - self.offset:
             size = self.max_offset - self.offset
 
         chunks = []
