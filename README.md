@@ -19,7 +19,10 @@ $ pip install ole-py
 ```python
 import ole
 
-with ole.open('testfile.hwp') as f:
+with ole.open('examples\\testfile.hwp') as f:
+    print('Streams:')
+    print('\n'.join(f.list_streams()))
+
     print('Preview text:')
     print(f.get_stream('PrvText').read().decode('utf-16le'))
 ```
