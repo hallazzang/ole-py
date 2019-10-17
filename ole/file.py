@@ -169,7 +169,7 @@ class File:
             reader = SectorReader(
                 self._fp,
                 self._header.sector_size,
-                sector_chain(self.fat, entry._starting_sector),
+                sector_chain(self._fat, entry._starting_sector),
                 lambda sector: (sector+1) * self._header.sector_size,
                 entry._stream_size,
             )
