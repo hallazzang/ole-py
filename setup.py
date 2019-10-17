@@ -8,7 +8,7 @@ with open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='ole-py',
-    version='1.1.1',
+    version='1.1.2',
     url='https://github.com/hallazzang/ole-py',
     license='MIT',
     author='Hanjun Kim',
